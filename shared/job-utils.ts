@@ -1,5 +1,7 @@
 import type { JobApplication, JobStatus } from './types'
 
+const RESPONSE_STATUSES: JobStatus[] = ['responded', 'interview', 'offer', 'rejected']
+
 export function normalizeUrl(value: string) {
   const url = new URL(value.trim())
   url.hash = ''
@@ -22,9 +24,17 @@ export function detectPlatform(value: string) {
 }
 
 export function isNeedsReview(job: JobApplication, staleDays: number, now = new Date()) {
-  if (!['applied', 'interview'].includes(job.status) || job.archived) return false
+  if (!['applied', 'responded', 'interview'].includes(job.status) || job.archived) return false
   const basis = Math.max(new Date(job.lastActivityAt).getTime(), job.reviewDismissedAt ? new Date(job.reviewDismissedAt).getTime() : 0)
   return now.getTime() - basis >= staleDays * 86_400_000
+}
+
+export function isResponseStatus(status: JobStatus) {
+  return RESPONSE_STATUSES.includes(status)
+}
+
+export function firstResponseAt(job: JobApplication) {
+  return job.history.find(event => isResponseStatus(event.to))?.at ?? null
 }
 
 export function daysBetween(from: string, to = new Date().toISOString()) {

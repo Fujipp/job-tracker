@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canTransition, detectPlatform, isNeedsReview, normalizeUrl } from '../shared/job-utils'
+import { canTransition, detectPlatform, firstResponseAt, isNeedsReview, isResponseStatus, normalizeUrl } from '../shared/job-utils'
 import type { JobApplication } from '../shared/types'
 
 const base: JobApplication = {
@@ -19,7 +19,16 @@ describe('job utilities', () => {
   })
   it('flags quiet active applications only after the threshold', () => {
     expect(isNeedsReview(base, 14, new Date('2026-08-16T00:00:00.000Z'))).toBe(true)
+    expect(isNeedsReview({...base,status:'responded'}, 14, new Date('2026-08-16T00:00:00.000Z'))).toBe(true)
     expect(isNeedsReview({...base,status:'saved'}, 14, new Date('2026-08-16T00:00:00.000Z'))).toBe(false)
+  })
+  it('treats a response as progress before an interview', () => {
+    const respondedAt = '2026-08-03T00:00:00.000Z'
+    const responded = {...base, status:'responded' as const, history:[{id:'event-1',from:'applied' as const,to:'responded' as const,at:respondedAt}]}
+    expect(isResponseStatus(responded.status)).toBe(true)
+    expect(firstResponseAt(responded)).toBe(respondedAt)
+    expect(isResponseStatus('interview')).toBe(true)
+    expect(isResponseStatus('applied')).toBe(false)
   })
   it('does not silently reopen terminal states', () => {
     expect(canTransition('rejected','interview')).toBe(false)

@@ -1,5 +1,14 @@
-export const JOB_STATUSES = ['saved', 'applied', 'interview', 'offer', 'rejected', 'withdrawn'] as const
+export const JOB_STATUSES = ['saved', 'applied', 'responded', 'interview', 'offer', 'rejected', 'withdrawn'] as const
 export type JobStatus = typeof JOB_STATUSES[number]
+export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
+  saved: 'Saved',
+  applied: 'Applied',
+  responded: 'Responded',
+  interview: 'Interview',
+  offer: 'Offer',
+  rejected: 'Rejected',
+  withdrawn: 'Withdrawn'
+}
 export type WorkMode = 'onsite' | 'hybrid' | 'remote' | 'unspecified'
 export const DISCOVERY_CATEGORIES = ['Software & IT', 'Data & Analytics', 'Engineering', 'Design & Creative', 'Product & Project', 'Sales & Marketing', 'Finance & Accounting', 'Operations & Admin', 'Customer Support', 'HR & Recruiting', 'Logistics', 'Legal', 'Healthcare', 'Education', 'Hospitality', 'Other'] as const
 export type DiscoveryCategory = typeof DISCOVERY_CATEGORIES[number]

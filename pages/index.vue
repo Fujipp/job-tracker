@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Plus, Search, SlidersHorizontal, Download, Upload, Settings, BriefcaseBusiness, Send, MessageSquareText, TrendingUp, Timer, X, Check, LayoutDashboard, Radar } from 'lucide-vue-next'
+import { Plus, Search, SlidersHorizontal, Download, Upload, Settings, BriefcaseBusiness, Send, MessageSquareText, TrendingUp, Timer, X, Check } from 'lucide-vue-next'
 import type { AppData, AppSettings, JobApplication, JobStatus } from '~/shared/types'
-import { JOB_STATUSES } from '~/shared/types'
-import { daysBetween, isNeedsReview } from '~/shared/job-utils'
+import { JOB_STATUSES, JOB_STATUS_LABELS } from '~/shared/types'
+import { daysBetween, firstResponseAt, isNeedsReview, isResponseStatus } from '~/shared/job-utils'
 
 const { data: jobs, refresh, pending, error } = await useFetch<JobApplication[]>('/api/jobs', { default: () => [] })
 const { data: settings, refresh: refreshSettings } = await useFetch<AppSettings>('/api/settings', { default: () => ({ staleDays: 14, compactCards: false }) })
+const sidebarCollapsed = useState<boolean>('sidebar-collapsed', () => false)
 const showForm = ref(false), showSettings = ref(false), showImport = ref(false)
 const editing = ref<JobApplication | null>(null)
 const search = ref(''), platform = ref('all'), workMode = ref('all'), dateFrom = ref('')
@@ -13,7 +14,7 @@ const toast = ref('')
 const importFile = ref<File | null>(null), importPreview = ref<{created:number;updated:number;duplicates:number}|null>(null), importPayload = ref<AppData|null>(null)
 
 const statusMeta: Record<JobStatus,{label:string; dot:string}> = {
-  saved:{label:'Saved',dot:'bg-slate-400'}, applied:{label:'Applied',dot:'bg-blue-500'}, interview:{label:'Interview',dot:'bg-amber-500'}, offer:{label:'Offer',dot:'bg-emerald-500'}, rejected:{label:'Rejected',dot:'bg-red-400'}, withdrawn:{label:'Withdrawn',dot:'bg-stone-400'}
+  saved:{label:JOB_STATUS_LABELS.saved,dot:'bg-slate-400'}, applied:{label:JOB_STATUS_LABELS.applied,dot:'bg-brand-blue'}, responded:{label:JOB_STATUS_LABELS.responded,dot:'bg-brand-cyan'}, interview:{label:JOB_STATUS_LABELS.interview,dot:'bg-brand-yellow'}, offer:{label:JOB_STATUS_LABELS.offer,dot:'bg-brand-green'}, rejected:{label:JOB_STATUS_LABELS.rejected,dot:'bg-brand-red'}, withdrawn:{label:JOB_STATUS_LABELS.withdrawn,dot:'bg-slate-600'}
 }
 const filtered = computed(() => (jobs.value || []).filter(j => {
   const q = search.value.toLowerCase(); const haystack = `${j.title} ${j.company} ${j.location} ${j.tags.join(' ')}`.toLowerCase()
@@ -24,15 +25,15 @@ const platforms = computed(() => [...new Set((jobs.value || []).map(j => j.platf
 const reviewJobs = computed(() => (jobs.value || []).filter(j => isNeedsReview(j, settings.value.staleDays)))
 const metrics = computed(() => {
   const all = (jobs.value || []).filter(j => !j.archived), applied = all.filter(j => j.appliedAt)
-  const progress = all.filter(j => ['interview','offer'].includes(j.status))
-  const responded = all.filter(j => ['interview','offer','rejected'].includes(j.status))
-  const waits = progress.map(j => { const event = j.history.find(h => h.to === 'interview' || h.to === 'offer'); return event && j.appliedAt ? daysBetween(j.appliedAt, event.at) : 0 })
+  const progress = all.filter(j => ['responded','interview','offer'].includes(j.status))
+  const responded = all.filter(j => isResponseStatus(j.status) || firstResponseAt(j))
+  const waits = responded.flatMap(j => { const repliedAt = firstResponseAt(j); return repliedAt && j.appliedAt ? [daysBetween(j.appliedAt, repliedAt)] : [] })
   return [
-    {label:'Opportunities',value:all.length,icon:BriefcaseBusiness,color:'bg-lime'},
-    {label:'Applications',value:applied.length,icon:Send,color:'bg-blue-100'},
-    {label:'In progress',value:progress.length,icon:MessageSquareText,color:'bg-amber-100'},
-    {label:'Response rate',value:applied.length ? `${Math.round(responded.length/applied.length*100)}%` : '—',icon:TrendingUp,color:'bg-emerald-100'},
-    {label:'Avg. first reply',value:waits.length ? `${Math.round(waits.reduce((a,b)=>a+b,0)/waits.length)}d` : '—',icon:Timer,color:'bg-violet-100'}
+    {label:'Opportunities',value:all.length,icon:BriefcaseBusiness,color:'bg-brand-yellow'},
+    {label:'Applications',value:applied.length,icon:Send,color:'bg-brand-blue/15'},
+    {label:'In progress',value:progress.length,icon:MessageSquareText,color:'bg-brand-cyan/20'},
+    {label:'Response rate',value:applied.length ? `${Math.round(responded.length/applied.length*100)}%` : '—',icon:TrendingUp,color:'bg-brand-green/20'},
+    {label:'Avg. first reply',value:waits.length ? `${Math.round(waits.reduce((a,b)=>a+b,0)/waits.length)}d` : '—',icon:Timer,color:'bg-brand-purple/15'}
   ]
 })
 
@@ -49,14 +50,31 @@ async function commitImport(){ if(!importPayload.value)return; await ($fetch as 
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <header class="border-b bg-canvas/90 backdrop-blur"><div class="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-4 lg:px-8">
-      <div class="flex items-center gap-3"><div class="grid h-10 w-10 place-items-center rounded-xl bg-ink text-lime"><BriefcaseBusiness :size="20"/></div><div class="hidden sm:block"><h1 class="font-display text-xl leading-none">First Move</h1><p class="mt-1 text-[10px] font-bold uppercase tracking-[.18em] text-muted">Job command center</p></div></div>
-      <nav class="flex rounded-xl border bg-white/70 p-1"><NuxtLink to="/" class="flex items-center gap-2 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white"><LayoutDashboard :size="16"/><span class="hidden md:inline">Pipeline</span></NuxtLink><NuxtLink to="/discover" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-muted hover:text-ink"><Radar :size="16"/><span class="hidden md:inline">Discover</span></NuxtLink></nav>
-      <div class="flex items-center gap-2"><button class="btn-secondary hidden lg:flex" @click="downloadBackup"><Download :size="16"/> Export</button><button class="btn-secondary hidden lg:flex" @click="showImport=true"><Upload :size="16"/> Import</button><button class="btn-secondary !px-3" aria-label="Settings" @click="showSettings=true"><Settings :size="17"/></button><button class="btn-primary" @click="editing=null;showForm=true"><Plus :size="18"/> <span class="hidden sm:inline">Add opportunity</span><span class="sm:hidden">Add</span></button></div>
-    </div></header>
+  <div class="min-h-screen min-w-0 overflow-x-hidden transition-[padding-left] duration-300 ease-out motion-reduce:transition-none" :class="sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'">
+    <AppSidebar>
+      <template #actions="{ collapsed }">
+        <div v-if="!collapsed" class="space-y-2">
+          <button class="btn-primary w-full" @click="editing=null;showForm=true"><Plus :size="17"/> Add opportunity</button>
+          <div class="grid grid-cols-3 gap-1">
+            <button class="grid min-h-14 place-items-center rounded-xl text-xs font-semibold text-muted transition hover:bg-ink/[.045] hover:text-ink" title="Export backup" @click="downloadBackup"><Download :size="16"/><span>Export</span></button>
+            <button class="grid min-h-14 place-items-center rounded-xl text-xs font-semibold text-muted transition hover:bg-ink/[.045] hover:text-ink" title="Import backup" @click="showImport=true"><Upload :size="16"/><span>Import</span></button>
+            <button class="grid min-h-14 place-items-center rounded-xl text-xs font-semibold text-muted transition hover:bg-ink/[.045] hover:text-ink" title="Settings" @click="showSettings=true"><Settings :size="16"/><span>Settings</span></button>
+          </div>
+        </div>
+        <div v-else class="grid justify-center gap-1.5">
+          <button class="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white" title="Add opportunity" aria-label="Add opportunity" @click="editing=null;showForm=true"><Plus :size="18"/></button>
+          <button class="grid h-10 w-11 place-items-center rounded-xl text-muted hover:bg-ink/[.045] hover:text-ink" title="Export backup" aria-label="Export backup" @click="downloadBackup"><Download :size="16"/></button>
+          <button class="grid h-10 w-11 place-items-center rounded-xl text-muted hover:bg-ink/[.045] hover:text-ink" title="Import backup" aria-label="Import backup" @click="showImport=true"><Upload :size="16"/></button>
+          <button class="grid h-10 w-11 place-items-center rounded-xl text-muted hover:bg-ink/[.045] hover:text-ink" title="Settings" aria-label="Settings" @click="showSettings=true"><Settings :size="16"/></button>
+        </div>
+      </template>
+      <template #mobile-actions>
+        <button class="grid h-10 w-10 place-items-center rounded-xl border bg-white text-ink" aria-label="Settings" @click="showSettings=true"><Settings :size="17"/></button>
+        <button class="grid h-10 w-10 place-items-center rounded-xl bg-ink text-white" aria-label="Add opportunity" @click="editing=null;showForm=true"><Plus :size="19"/></button>
+      </template>
+    </AppSidebar>
 
-    <main class="mx-auto max-w-[1600px] px-5 py-8 lg:px-8">
+    <main class="mx-auto min-w-0 max-w-[1600px] px-5 py-8 lg:px-8">
       <section class="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-end"><div><p class="mb-2 text-xs font-bold uppercase tracking-[.18em] text-rust">{{ new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}) }}</p><h2 class="max-w-2xl font-display text-4xl leading-tight sm:text-5xl">Make your next move<br><em class="text-moss">before everyone else.</em></h2></div><p class="max-w-md text-sm leading-relaxed text-muted">Capture promising roles, keep every conversation moving, and see exactly where your energy is paying off.</p></section>
 
       <section class="mb-7 grid grid-cols-2 gap-3 md:grid-cols-5"><article v-for="m in metrics" :key="m.label" class="rounded-2xl border bg-panel p-4 shadow-card"><div class="mb-4 flex h-9 w-9 items-center justify-center rounded-xl" :class="m.color"><component :is="m.icon" :size="17"/></div><p class="text-2xl font-semibold">{{ m.value }}</p><p class="mt-1 text-xs text-muted">{{ m.label }}</p></article></section>
@@ -66,7 +84,7 @@ async function commitImport(){ if(!importPayload.value)return; await ($fetch as 
       <section class="mb-5 flex flex-col gap-3 rounded-2xl border bg-panel p-3 sm:flex-row"><label class="relative flex-1"><Search class="absolute left-3 top-2.5 text-muted" :size="18"/><input v-model="search" class="field !border-0 !bg-canvas pl-10" placeholder="Search role, company, location or tag…"></label><div class="flex gap-2 overflow-x-auto"><select v-model="platform" class="field min-w-32"><option value="all">All platforms</option><option v-for="p in platforms" :key="p">{{p}}</option></select><select v-model="workMode" class="field min-w-32"><option value="all">Any work mode</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select><label class="relative"><SlidersHorizontal class="absolute left-3 top-3 text-muted" :size="15"/><input v-model="dateFrom" type="date" class="field min-w-40 pl-9"></label></div></section>
 
       <div v-if="pending" class="py-20 text-center text-muted">Loading your pipeline…</div><div v-else-if="error" class="rounded-2xl bg-red-50 p-8 text-center text-red-700">Could not load your local data.</div>
-      <section v-else class="grid auto-cols-[280px] grid-flow-col gap-4 overflow-x-auto pb-6 xl:grid-flow-row xl:grid-cols-6">
+      <section v-else class="grid grid-cols-1 gap-4 pb-6 sm:grid-cols-2 xl:grid-cols-3 min-[1450px]:grid-cols-4">
         <div v-for="status in JOB_STATUSES" :key="status" class="min-h-[400px] rounded-2xl bg-ink/[.035] p-3" @dragover.prevent @drop="drop($event,status)">
           <div class="mb-3 flex items-center justify-between px-1"><div class="flex items-center gap-2"><span class="h-2 w-2 rounded-full" :class="statusMeta[status].dot"/><h3 class="text-xs font-bold uppercase tracking-[.12em]">{{ statusMeta[status].label }}</h3></div><span class="rounded-full bg-white px-2 py-0.5 text-xs text-muted">{{ byStatus(status).length }}</span></div>
           <div class="space-y-3"><JobCard v-for="job in byStatus(status)" :key="job.id" :job="job" :needs-review="isNeedsReview(job,settings.staleDays)" :compact="settings.compactCards" @status="move(job,$event)" @edit="editing=job;showForm=true" @archive="update(job.id,{archived:true},'Archived')" @remove="removeJob(job)"/><button v-if="status==='saved'" class="w-full rounded-2xl border border-dashed p-4 text-xs font-semibold text-muted hover:border-moss hover:text-moss" @click="editing=null;showForm=true"><Plus class="mx-auto mb-1" :size="18"/> Capture a role</button></div>

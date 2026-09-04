@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title description">
+  <title id="title">First Move</title>
+  <desc id="description">An F monogram moving forward</desc>
+  <defs>
+    <linearGradient id="spectrum" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff1744"/>
+      <stop offset=".24" stop-color="#ffea00"/>
+      <stop offset=".48" stop-color="#00e676"/>
+      <stop offset=".68" stop-color="#00e5ff"/>
+      <stop offset=".84" stop-color="#2979ff"/>
+      <stop offset="1" stop-color="#d500f9"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="#000"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="17.25" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.5"/>
+  <path d="M15 14h31v9H25v7h14v9H25v11H15V14Z" fill="#fff"/>
+  <path d="M37 36h8v-5l10 10-10 10v-5h-8V36Z" fill="url(#spectrum)"/>
+</svg>

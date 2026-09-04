@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { MapPin, ExternalLink, MoreHorizontal, Clock3, Pencil, Archive, Trash2 } from 'lucide-vue-next'
 import type { JobApplication, JobStatus } from '~/shared/types'
-import { daysBetween } from '~/shared/job-utils'
-defineProps<{ job: JobApplication; needsReview: boolean; compact?: boolean }>()
+import { JOB_STATUSES, JOB_STATUS_LABELS } from '~/shared/types'
+import { canTransition, daysBetween } from '~/shared/job-utils'
+const props = defineProps<{ job: JobApplication; needsReview: boolean; compact?: boolean }>()
 const emit = defineEmits<{ status: [status: JobStatus]; edit: []; archive: []; remove: [] }>()
 const menu = ref(false)
 const platformClass: Record<string,string> = { LinkedIn: 'bg-blue-50 text-blue-700', JobsDB: 'bg-violet-50 text-violet-700', JobsThai: 'bg-orange-50 text-orange-700' }
+const selectableStatuses = computed(() => JOB_STATUSES.filter(status => canTransition(props.job.status, status)))
+function changeStatus(event: Event) {
+  emit('status', (event.target as HTMLSelectElement).value as JobStatus)
+}
 </script>
 <template>
   <article class="group cursor-grab rounded-2xl border bg-panel p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-soft" draggable="true" @dragstart="$event.dataTransfer?.setData('job-id', job.id)">
@@ -26,6 +31,10 @@ const platformClass: Record<string,string> = { LinkedIn: 'bg-blue-50 text-blue-7
     <div class="mt-4 flex items-center gap-2 border-t pt-3">
       <a :href="job.url" target="_blank" rel="noopener" class="flex flex-1 items-center gap-1.5 text-xs font-semibold text-moss hover:underline"><ExternalLink :size="14"/> Open & apply</a>
       <button v-if="job.status === 'saved'" class="rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-semibold text-white" @click="emit('status','applied')">Mark applied</button>
+      <label v-else class="sr-only" :for="`status-${job.id}`">Change status for {{ job.title }}</label>
+      <select v-if="job.status !== 'saved'" :id="`status-${job.id}`" :value="job.status" class="max-w-28 rounded-lg border bg-white px-2 py-1.5 text-[11px] font-semibold" @change="changeStatus">
+        <option v-for="status in selectableStatuses" :key="status" :value="status">{{ JOB_STATUS_LABELS[status] }}</option>
+      </select>
     </div>
   </article>
 </template>

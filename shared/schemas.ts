@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const jobStatusSchema = z.enum(['saved', 'applied', 'interview', 'offer', 'rejected', 'withdrawn'])
+export const jobStatusSchema = z.enum(['saved', 'applied', 'responded', 'interview', 'offer', 'rejected', 'withdrawn'])
 export const workModeSchema = z.enum(['onsite', 'hybrid', 'remote', 'unspecified'])
 
 export const statusEventSchema = z.object({
